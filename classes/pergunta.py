@@ -32,9 +32,20 @@ class Pergunta:
             return False
         return letra_escolhida.upper() == self.resposta_correta
 
-    def obter_texto_alternativa(self, letra: str) -> str:
-        """Retorna o texto de uma alternativa específica (A, B, C ou D)."""
-        return self.alternativas.get(letra.upper(), "")
+    def obter_texto_alternativa(self, letra):
+        mapa = {
+            "A": 0,
+            "B": 1,
+            "C": 2,
+            "D": 3
+        }
+
+        indice = mapa.get(letra.upper())
+
+        if indice is not None and indice < len(self.alternativas):
+            return self.alternativas[indice]
+
+        return ""
 
     def __repr__(self) -> str:
         return (

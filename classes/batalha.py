@@ -385,7 +385,7 @@ class Batalha:
             pygame.draw.rect(self.tela, COR_CINZA, caixa_alternativa, border_radius=8)
             pygame.draw.rect(self.tela, COR_CINZA_CLARO, caixa_alternativa, width=2, border_radius=8)
 
-            texto_alternativa = f"{letra}) {self.pergunta_atual.obter_texto_alternativa(letra)}"
+            texto_alternativa = self.pergunta_atual.obter_texto_alternativa(letra)
             linhas_alternativa = self._quebrar_texto(texto_alternativa, self.fonte_alternativa, largura_alternativa - 24)
             for numero_linha, linha in enumerate(linhas_alternativa[:2]):
                 texto_renderizado = self.fonte_alternativa.render(linha, True, COR_BRANCO)
