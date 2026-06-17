@@ -95,3 +95,13 @@ ESTADO_CREDITOS = "creditos"
 MODO_MATEMATICA = "matematica"
 MODO_PORTUGUES = "portugues"
 MODO_MISTA = "mista"
+
+# ===================== CONTAGEM REGRESSIVA =====================
+TEMPO_CONTAGEM_REGRESSIVA = 1.0      # segundos entre cada número (3,2,1)
+TEMPO_EXIBICAO_GO = 1.0              # segundos que "GO!" fica na tela
+
+# ===================== MENSAGENS FLUTUANTES =====================
+TEMPO_EXIBICAO_DANO = 1.5            # segundos que o dano fica visível
+
+# ===================== ANIMAÇÃO DE ERRO =====================
+# O nome do arquivo já está definido em gerenciador_animacoes.py

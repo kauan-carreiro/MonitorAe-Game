@@ -6,6 +6,7 @@ import pygame
 NOMES_QUADROS_IDLE: List[str] = ["idle_1.png", "idle_2.png", "idle_3.png"]
 NOME_QUADRO_ATAQUE: str = "ataque.png"
 NOME_QUADRO_DANO: str = "dano.png"
+NOME_QUADRO_ERRO: str = "errou.png"
 
 TAMANHO_PADRAO_PERSONAGEM: Tuple[int, int] = (220, 260)
 
@@ -20,6 +21,7 @@ class GerenciadorAnimacoes:
         self.quadros_idle: List[pygame.Surface] = []
         self.quadro_ataque: pygame.Surface
         self.quadro_dano: pygame.Surface
+        self.quadro_erro: pygame.Surface  
 
         self._carregar_todos_os_quadros()
 
@@ -53,10 +55,11 @@ class GerenciadorAnimacoes:
         return superficie
 
     def _carregar_todos_os_quadros(self) -> None:
-        """Carrega os 3 quadros de idle, o quadro de ataque e o quadro de dano."""
+        """Carrega os 3 quadros de idle, o quadro de ataque, o de dano e o de erro."""
         self.quadros_idle = [
             self._carregar_imagem(nome_arquivo, f"IDLE {indice + 1}")
             for indice, nome_arquivo in enumerate(NOMES_QUADROS_IDLE)
         ]
         self.quadro_ataque = self._carregar_imagem(NOME_QUADRO_ATAQUE, "ATAQUE")
         self.quadro_dano = self._carregar_imagem(NOME_QUADRO_DANO, "DANO")
+        self.quadro_erro = self._carregar_imagem(NOME_QUADRO_ERRO, "ERROU")

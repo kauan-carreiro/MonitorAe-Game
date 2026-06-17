@@ -1,6 +1,6 @@
 import os
 import random
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import pygame
 
@@ -23,19 +23,25 @@ from classes.constantes import (
     TEMPO_LEITURA_PERGUNTA,
     TEMPO_LIMITE_RESPOSTA,
     VIDA_INICIAL,
+    TEMPO_CONTAGEM_REGRESSIVA,
+    TEMPO_EXIBICAO_GO,
+    TEMPO_EXIBICAO_DANO,
 )
 from classes.gerenciador_cenarios import GerenciadorCenarios
 from classes.gerenciador_perguntas import GerenciadorPerguntas
 from classes.gerenciador_sons import GerenciadorSons
 from classes.jogador import Jogador
-from classes.personagem import Personagem
+from classes.personagem import Personagem, ESTADO_ERRO
 
+# Estados da rodada (adicionamos CONTAGEM)
+ESTADO_RODADA_CONTAGEM = "contagem"
 ESTADO_RODADA_AGUARDANDO_RESPOSTAS = "aguardando_respostas"
 ESTADO_RODADA_EXIBINDO_RESULTADO = "exibindo_resultado"
 ESTADO_RODADA_FIM_DE_BATALHA = "fim_de_batalha"
 
 # Pesos de sorteio de dificuldade
 PESOS_DIFICULDADE = {"facil": 0.40, "normal": 0.35, "dificil": 0.25}
+
 
 class Batalha:
     def __init__(
@@ -74,7 +80,7 @@ class Batalha:
         self.grupo_personagens = pygame.sprite.Group(self.personagem1, self.personagem2)
 
         self.pergunta_atual = None
-        self.estado_rodada = ESTADO_RODADA_AGUARDANDO_RESPOSTAS
+        self.estado_rodada = ESTADO_RODADA_CONTAGEM  # <-- começa com contagem
         self.respostas_habilitadas = False
         self.cronometro_rodada = 0.0
         self.cronometro_resposta = 0.0
@@ -85,12 +91,30 @@ class Batalha:
         self.vencedor: Optional[Jogador] = None
         self.batalha_finalizada = False
 
-        self.fonte_pergunta = pygame.font.SysFont("arial", 25, bold=True)
-        self.fonte_alternativa = pygame.font.SysFont("arial", 21)
-        self.fonte_hud = pygame.font.SysFont("arial", 20, bold=True)
-        self.fonte_pequena = pygame.font.SysFont("arial", 16)
+        # --- NOVOS ATRIBUTOS PARA CONTAGEM REGRESSIVA ---
+        self.contagem_atual = 3
+        self.cronometro_contagem = 0.0
+        self.mostrar_go = False
+        self.cronometro_go = 0.0
 
+        # --- MENSAGENS FLUTUANTES (DANO) ---
+        self.mensagens: List[Tuple[str, Tuple[int, int], Tuple[int, int, int], float]] = []
+
+        # --- FONTE MAIOR PARA O CRONÔMETRO ---
+        self.fonte_cronometro = pygame.font.SysFont("segoe ui", 48, bold=True)
+
+        # Demais fontes
+        self.fonte_pergunta = pygame.font.SysFont("segoe ui", 26, bold=True)
+        self.fonte_alternativa = pygame.font.SysFont("segoe ui", 22)
+        self.fonte_hud = pygame.font.SysFont("segoe ui", 22, bold=True)
+        self.fonte_pequena = pygame.font.SysFont("segoe ui", 18)
+        self.fonte_contagem = pygame.font.SysFont("segoe ui", 120, bold=True)
+        self.fonte_vencedor = pygame.font.SysFont("segoe ui", 80, bold=True)
+
+        # --- ÁUDIO ---
         self.gerenciador_sons.tocar_musica_de_batalha()
+
+        # Inicia a primeira rodada com contagem
         self._iniciar_nova_rodada()
 
     # ----------------------------------------------------------------- #
@@ -103,14 +127,12 @@ class Batalha:
         return random.choices(dificuldades, weights=pesos, k=1)[0]
 
     def _iniciar_nova_rodada(self) -> None:
-        """Sorteia uma nova pergunta e reinicia todo o estado referente à rodada."""
+        """Sorteia uma nova pergunta, reinicia estado e inicia contagem regressiva."""
         dificuldade_sorteada = self._escolher_dificuldade_aleatoria()
         pergunta_sorteada = self.gerenciador_perguntas.sortear_pergunta_para_modo(
             self.modo_jogo, dificuldade_sorteada
         )
 
-        # Se não houver perguntas disponíveis na dificuldade sorteada (por exemplo,
-        # porque o banco de questões já foi todo utilizado), tenta as demais antes de desistir.
         if pergunta_sorteada is None:
             for dificuldade_alternativa in ("normal", "facil", "dificil"):
                 pergunta_sorteada = self.gerenciador_perguntas.sortear_pergunta_para_modo(
@@ -126,11 +148,17 @@ class Batalha:
         self.pergunta_atual = pergunta_sorteada
         self.jogador1.reiniciar_para_nova_rodada()
         self.jogador2.reiniciar_para_nova_rodada()
-        self.estado_rodada = ESTADO_RODADA_AGUARDANDO_RESPOSTAS
+
+        # Inicia contagem regressiva
+        self.estado_rodada = ESTADO_RODADA_CONTAGEM
+        self.contagem_atual = 3
+        self.cronometro_contagem = 0.0
+        self.mostrar_go = False
+        self.cronometro_go = 0.0
         self.respostas_habilitadas = False
+        self.alguem_acertou_primeiro_na_rodada = False
         self.cronometro_rodada = 0.0
         self.cronometro_resposta = 0.0
-        self.alguem_acertou_primeiro_na_rodada = False
 
     def _processar_resposta_jogador(
         self,
@@ -140,7 +168,7 @@ class Batalha:
         personagem_oponente: Personagem,
         letra: str,
     ) -> None:
-        """Processa a escolha de alternativa de um jogador: calcula dano e atualiza estatísticas."""
+        """Processa a escolha de alternativa: calcula dano, exibe mensagem e animações."""
         if jogador.ja_respondeu_na_rodada or not self.respostas_habilitadas:
             return
 
@@ -153,7 +181,10 @@ class Batalha:
             self.alguem_acertou_primeiro_na_rodada = True
 
         dano_causado = CalculadoraDano.calcular_dano(
-            resposta_correta, self.pergunta_atual.dificuldade, tempo_resposta, foi_o_primeiro_a_acertar
+            resposta_correta,
+            self.pergunta_atual.dificuldade,
+            tempo_resposta,
+            foi_o_primeiro_a_acertar,
         )
 
         if resposta_correta:
@@ -163,8 +194,23 @@ class Batalha:
             personagem_oponente.iniciar_animacao_dano()
             self.gerenciador_sons.tocar_efeito("ataque")
             self.gerenciador_sons.tocar_efeito("dano")
+
+            # Exibe dano flutuante no oponente
+            self._adicionar_mensagem_dano(
+                f"-{dano_causado}",
+                personagem_oponente.rect.centerx,
+                personagem_oponente.rect.top - 20,
+                COR_VERMELHO
+            )
         else:
             jogador.registrar_erro()
+            # Anima erro no personagem que errou
+            personagem_jogador.iniciar_animacao_erro()
+            self.gerenciador_sons.tocar_efeito("erro")  # Opcional, adicione um som de erro
+
+    def _adicionar_mensagem_dano(self, texto: str, x: int, y: int, cor: Tuple[int, int, int]) -> None:
+        """Adiciona uma mensagem flutuante de dano na tela."""
+        self.mensagens.append((texto, (x, y), cor, TEMPO_EXIBICAO_DANO))
 
     def processar_evento(self, evento: pygame.event.Event) -> None:
         """Processa eventos de teclado para a seleção de alternativas pelos dois jogadores."""
@@ -192,11 +238,15 @@ class Batalha:
             return
 
         if tempo_esgotado:
-            # Quem não respondeu a tempo perde a rodada (contabilizado como erro).
             for jogador in (self.jogador1, self.jogador2):
                 if not jogador.ja_respondeu_na_rodada:
                     jogador.ja_respondeu_na_rodada = True
                     jogador.registrar_erro()
+                    # Animação de erro para quem não respondeu
+                    if jogador is self.jogador1:
+                        self.personagem1.iniciar_animacao_erro()
+                    else:
+                        self.personagem2.iniciar_animacao_erro()
 
         self.contador_perguntas_respondidas += 1
         self.estado_rodada = ESTADO_RODADA_EXIBINDO_RESULTADO
@@ -211,14 +261,13 @@ class Batalha:
         if self.jogador1.vida != self.jogador2.vida:
             return self.jogador1 if self.jogador1.vida > self.jogador2.vida else self.jogador2
 
-        # Empate de vida: desempata por número de acertos e, em seguida, por tempo médio.
         if self.jogador1.total_acertos != self.jogador2.total_acertos:
             return self.jogador1 if self.jogador1.total_acertos > self.jogador2.total_acertos else self.jogador2
 
         tempo_medio_jogador1 = self.jogador1.calcular_tempo_medio() or float("inf")
         tempo_medio_jogador2 = self.jogador2.calcular_tempo_medio() or float("inf")
         if tempo_medio_jogador1 == tempo_medio_jogador2:
-            return None  # Empate verdadeiro, sem critério de desempate restante.
+            return None
         return self.jogador1 if tempo_medio_jogador1 < tempo_medio_jogador2 else self.jogador2
 
     def _finalizar_batalha(self) -> None:
@@ -231,7 +280,7 @@ class Batalha:
         self.gerenciador_sons.tocar_efeito("vitoria")
 
     def obter_dados_resultado(self) -> dict:
-        """Consolida as estatísticas finais da batalha para serem exibidas na tela de resultado."""
+        """Consolida as estatísticas finais da batalha."""
         return {
             "modo_jogo": self.modo_jogo,
             "tempo_total_batalha": self.tempo_total_batalha,
@@ -244,19 +293,44 @@ class Batalha:
     # ATUALIZAÇÃO
     # ----------------------------------------------------------------- #
     def atualizar(self, tempo_decorrido: float) -> None:
-        """Atualiza o estado da rodada, as animações dos personagens e os cronômetros."""
+        """Atualiza o estado da rodada, animações, cronômetros e mensagens."""
         if self.batalha_finalizada:
             return
 
         self.tempo_total_batalha += tempo_decorrido
         self.grupo_personagens.update(tempo_decorrido)
 
-        if self.estado_rodada == ESTADO_RODADA_AGUARDANDO_RESPOSTAS:
+        # --- Atualiza mensagens flutuantes (remove as que expiraram) ---
+        novas_mensagens = []
+        for msg in self.mensagens:
+            texto, pos, cor, tempo_restante = msg
+            novo_tempo = tempo_restante - tempo_decorrido
+            if novo_tempo > 0:
+                novas_mensagens.append((texto, pos, cor, novo_tempo))
+            # se expirou, descarta
+        self.mensagens = novas_mensagens
+
+        # --- Lógica da rodada ---
+        if self.estado_rodada == ESTADO_RODADA_CONTAGEM:
+            self.cronometro_contagem += tempo_decorrido
+            if not self.mostrar_go:
+                if self.cronometro_contagem >= TEMPO_CONTAGEM_REGRESSIVA:
+                    self.contagem_atual -= 1
+                    self.cronometro_contagem = 0.0
+                    if self.contagem_atual <= 0:
+                        self.mostrar_go = True
+                        self.cronometro_go = 0.0
+            else:
+                self.cronometro_go += tempo_decorrido
+                if self.cronometro_go >= TEMPO_EXIBICAO_GO:
+                    # Passa para aguardar respostas
+                    self.estado_rodada = ESTADO_RODADA_AGUARDANDO_RESPOSTAS
+                    self.respostas_habilitadas = True
+                    self.cronometro_resposta = 0.0
+                    self.cronometro_rodada = 0.0
+
+        elif self.estado_rodada == ESTADO_RODADA_AGUARDANDO_RESPOSTAS:
             self.cronometro_rodada += tempo_decorrido
-
-            if not self.respostas_habilitadas and self.cronometro_rodada >= TEMPO_LEITURA_PERGUNTA:
-                self.respostas_habilitadas = True
-
             if self.respostas_habilitadas:
                 self.cronometro_resposta += tempo_decorrido
                 self._verificar_fim_da_rodada()
@@ -265,10 +339,8 @@ class Batalha:
             self.cronometro_resultado += tempo_decorrido
             if self.cronometro_resultado >= TEMPO_EXIBICAO_RESULTADO_RODADA:
                 houve_derrota = self.jogador1.esta_derrotado() or self.jogador2.esta_derrotado()
-                atingiu_limite_de_perguntas = (
-                    self.contador_perguntas_respondidas >= QUANTIDADE_MAXIMA_PERGUNTAS_POR_BATALHA
-                )
-                if houve_derrota or atingiu_limite_de_perguntas:
+                atingiu_limite = self.contador_perguntas_respondidas >= QUANTIDADE_MAXIMA_PERGUNTAS_POR_BATALHA
+                if houve_derrota or atingiu_limite:
                     self._finalizar_batalha()
                 else:
                     self._iniciar_nova_rodada()
@@ -277,34 +349,34 @@ class Batalha:
     # DESENHO / INTERFACE
     # ----------------------------------------------------------------- #
     def _quebrar_texto(self, texto: str, fonte: pygame.font.Font, largura_maxima: int) -> List[str]:
-        """Quebra um texto longo em múltiplas linhas que cabem na largura disponível."""
+        """Quebra um texto em múltiplas linhas."""
         palavras = texto.split(" ")
         linhas: List[str] = []
         linha_atual = ""
-
         for palavra in palavras:
-            linha_de_teste = f"{linha_atual} {palavra}".strip()
-            if fonte.size(linha_de_teste)[0] <= largura_maxima:
-                linha_atual = linha_de_teste
+            linha_teste = f"{linha_atual} {palavra}".strip()
+            if fonte.size(linha_teste)[0] <= largura_maxima:
+                linha_atual = linha_teste
             else:
                 if linha_atual:
                     linhas.append(linha_atual)
                 linha_atual = palavra
-
         if linha_atual:
             linhas.append(linha_atual)
         return linhas
 
-    def _desenhar_barra_de_vida(self, jogador: Jogador, posicao_x: int, posicao_y: int) -> None:
+    def _desenhar_barra_de_vida(self, jogador: Jogador, pos_x: int, pos_y: int) -> None:
         largura_barra = 320
-        altura_barra = 26
-        proporcao_vida = max(0.0, jogador.vida / jogador.vida_maxima)
+        altura_barra = 30
+        proporcao = max(0.0, jogador.vida / jogador.vida_maxima)
 
-        pygame.draw.rect(self.tela, COR_CINZA, (posicao_x, posicao_y, largura_barra, altura_barra), border_radius=6)
+        # Fundo
+        pygame.draw.rect(self.tela, COR_CINZA, (pos_x, pos_y, largura_barra, altura_barra), border_radius=8)
 
-        if proporcao_vida > 0.4:
+        # Cor da vida
+        if proporcao > 0.4:
             cor_vida = COR_VERDE
-        elif proporcao_vida > 0.15:
+        elif proporcao > 0.15:
             cor_vida = COR_AMARELO
         else:
             cor_vida = COR_VERMELHO
@@ -312,114 +384,173 @@ class Batalha:
         pygame.draw.rect(
             self.tela,
             cor_vida,
-            (posicao_x, posicao_y, int(largura_barra * proporcao_vida), altura_barra),
-            border_radius=6,
+            (pos_x, pos_y, int(largura_barra * proporcao), altura_barra),
+            border_radius=8,
         )
-        pygame.draw.rect(self.tela, COR_BRANCO, (posicao_x, posicao_y, largura_barra, altura_barra), width=2, border_radius=6)
+        pygame.draw.rect(self.tela, COR_BRANCO, (pos_x, pos_y, largura_barra, altura_barra), width=2, border_radius=8)
 
-        texto_vida = self.fonte_hud.render(f"{jogador.vida}/{jogador.vida_maxima}", True, COR_BRANCO)
-        self.tela.blit(texto_vida, (posicao_x + largura_barra // 2 - texto_vida.get_width() // 2, posicao_y + 2))
+        # Texto centralizado
+        texto = self.fonte_hud.render(f"{jogador.vida}/{jogador.vida_maxima}", True, COR_BRANCO)
+        self.tela.blit(texto, (pos_x + largura_barra // 2 - texto.get_width() // 2, pos_y + 4))
 
-    def _desenhar_painel_jogador(self, jogador: Jogador, posicao_x: int, posicao_y: int, alinhado_a_direita: bool) -> None:
-        nome_renderizado = self.fonte_hud.render(jogador.nome, True, COR_DESTAQUE)
-        texto_x = posicao_x if not alinhado_a_direita else posicao_x - nome_renderizado.get_width()
-        self.tela.blit(nome_renderizado, (texto_x, posicao_y - 26))
+    def _desenhar_painel_jogador(self, jogador: Jogador, pos_x: int, pos_y: int, alinhado_direita: bool) -> None:
+        nome = self.fonte_hud.render(jogador.nome, True, COR_DESTAQUE)
+        if alinhado_direita:
+            self.tela.blit(nome, (pos_x - nome.get_width(), pos_y - 30))
+        else:
+            self.tela.blit(nome, (pos_x, pos_y - 30))
 
-        posicao_x_barra = posicao_x if not alinhado_a_direita else posicao_x - 320
-        self._desenhar_barra_de_vida(jogador, posicao_x_barra, posicao_y)
+        barra_x = pos_x if not alinhado_direita else pos_x - 320
+        self._desenhar_barra_de_vida(jogador, barra_x, pos_y)
 
-        texto_informativo = (
-            f"Acertos: {jogador.total_acertos}  Erros: {jogador.total_erros}  "
-            f"Último dano: {jogador.ultimo_dano_causado}"
-        )
-        texto_renderizado = self.fonte_pequena.render(texto_informativo, True, COR_CINZA_CLARO)
-        info_x = posicao_x if not alinhado_a_direita else posicao_x - texto_renderizado.get_width()
-        self.tela.blit(texto_renderizado, (info_x, posicao_y + 32))
+        info = f"Acertos: {jogador.total_acertos}  Erros: {jogador.total_erros}  Último dano: {jogador.ultimo_dano_causado}"
+        texto_info = self.fonte_pequena.render(info, True, COR_CINZA_CLARO)
+        if alinhado_direita:
+            self.tela.blit(texto_info, (pos_x - texto_info.get_width(), pos_y + 40))
+        else:
+            self.tela.blit(texto_info, (pos_x, pos_y + 40))
 
     def _desenhar_pergunta_e_alternativas(self) -> None:
         if self.pergunta_atual is None:
             return
 
-        caixa_pergunta = pygame.Rect(LARGURA_TELA // 2 - 420, 90, 840, 110)
-        superficie_caixa = pygame.Surface(caixa_pergunta.size, pygame.SRCALPHA)
-        superficie_caixa.fill((10, 10, 20, 200))
-        self.tela.blit(superficie_caixa, caixa_pergunta.topleft)
-        pygame.draw.rect(self.tela, COR_DESTAQUE, caixa_pergunta, width=2, border_radius=10)
+        # Caixa da pergunta
+        caixa = pygame.Rect(LARGURA_TELA // 2 - 420, 90, 840, 120)
+        s = pygame.Surface(caixa.size, pygame.SRCALPHA)
+        s.fill((10, 10, 30, 220))
+        self.tela.blit(s, caixa.topleft)
+        pygame.draw.rect(self.tela, COR_DESTAQUE, caixa, width=2, border_radius=12)
 
-        rotulo_dificuldade = f"[{self.pergunta_atual.materia.upper()} - {self.pergunta_atual.dificuldade.upper()}]"
-        texto_rotulo = self.fonte_pequena.render(rotulo_dificuldade, True, COR_AMARELO)
-        self.tela.blit(texto_rotulo, (caixa_pergunta.x + 14, caixa_pergunta.y + 8))
+        # Rótulo dificuldade
+        rotulo = f"[{self.pergunta_atual.materia.upper()} - {self.pergunta_atual.dificuldade.upper()}]"
+        texto_rotulo = self.fonte_pequena.render(rotulo, True, COR_AMARELO)
+        self.tela.blit(texto_rotulo, (caixa.x + 14, caixa.y + 8))
 
-        linhas_enunciado = self._quebrar_texto(
-            self.pergunta_atual.enunciado, self.fonte_pergunta, caixa_pergunta.width - 28
-        )
-        for indice, linha in enumerate(linhas_enunciado[:3]):
+        # Enunciado
+        linhas = self._quebrar_texto(self.pergunta_atual.enunciado, self.fonte_pergunta, caixa.width - 28)
+        for i, linha in enumerate(linhas[:3]):
             texto_linha = self.fonte_pergunta.render(linha, True, COR_BRANCO)
-            self.tela.blit(texto_linha, (caixa_pergunta.x + 14, caixa_pergunta.y + 30 + indice * 28))
+            self.tela.blit(texto_linha, (caixa.x + 14, caixa.y + 32 + i * 30))
 
-        letras_em_ordem = ["A", "B", "C", "D"]
-        teclas_jogador1 = ["Q", "W", "E", "R"]
-        teclas_jogador2 = ["U", "I", "O", "P"]
-        largura_alternativa = 380
-        altura_alternativa = 56
-        posicao_y_alternativas = 230
+        # Alternativas
+        letras = ["A", "B", "C", "D"]
+        teclas1 = ["Q", "W", "E", "R"]
+        teclas2 = ["U", "I", "O", "P"]
+        larg_alt = 300
+        alt_alt = 60
+        y_alt = 200
 
-        for indice, letra in enumerate(letras_em_ordem):
-            coluna = indice % 2
-            linha_da_grade = indice // 2
-            posicao_x = LARGURA_TELA // 2 - largura_alternativa - 10 + coluna * (largura_alternativa + 20)
-            posicao_y = posicao_y_alternativas + linha_da_grade * (altura_alternativa + 14)
+        for i, letra in enumerate(letras):
+            coluna = i % 2
+            linha_grade = i // 2
+            x = LARGURA_TELA // 2 - larg_alt - 10 + coluna * (larg_alt + 20)
+            y = y_alt + linha_grade * (alt_alt + 14)
 
-            caixa_alternativa = pygame.Rect(posicao_x, posicao_y, largura_alternativa, altura_alternativa)
-            pygame.draw.rect(self.tela, COR_CINZA, caixa_alternativa, border_radius=8)
-            pygame.draw.rect(self.tela, COR_CINZA_CLARO, caixa_alternativa, width=2, border_radius=8)
+            rect = pygame.Rect(x, y, larg_alt, alt_alt)
+            pygame.draw.rect(self.tela, COR_CINZA, rect, border_radius=10)
+            pygame.draw.rect(self.tela, COR_CINZA_CLARO, rect, width=2, border_radius=10)
 
-            texto_alternativa = self.pergunta_atual.obter_texto_alternativa(letra)
-            linhas_alternativa = self._quebrar_texto(texto_alternativa, self.fonte_alternativa, largura_alternativa - 24)
-            for numero_linha, linha in enumerate(linhas_alternativa[:2]):
-                texto_renderizado = self.fonte_alternativa.render(linha, True, COR_BRANCO)
-                self.tela.blit(texto_renderizado, (caixa_alternativa.x + 10, caixa_alternativa.y + 4 + numero_linha * 22))
+            texto_alt = self.pergunta_atual.obter_texto_alternativa(letra)
+            linhas_alt = self._quebrar_texto(texto_alt, self.fonte_alternativa, larg_alt - 24)
+            for j, linha in enumerate(linhas_alt[:2]):
+                txt = self.fonte_alternativa.render(linha, True, COR_BRANCO)
+                self.tela.blit(txt, (rect.x + 10, rect.y + 6 + j * 24))
 
-            texto_teclas = f"P1:{teclas_jogador1[indice]} / P2:{teclas_jogador2[indice]}"
-            texto_teclas_renderizado = self.fonte_pequena.render(texto_teclas, True, COR_AMARELO)
-            self.tela.blit(
-                texto_teclas_renderizado,
-                (caixa_alternativa.right - texto_teclas_renderizado.get_width() - 8, caixa_alternativa.bottom - 18),
-            )
+            teclas = f"P1:{teclas1[i]} / P2:{teclas2[i]}"
+            txt_teclas = self.fonte_pequena.render(teclas, True, COR_AMARELO)
+            self.tela.blit(txt_teclas, (rect.right - txt_teclas.get_width() - 8, rect.bottom - 20))
 
     def _desenhar_cronometro_e_status(self) -> None:
+        # Cronômetro grande
         if self.respostas_habilitadas:
             tempo_restante = max(0.0, TEMPO_LIMITE_RESPOSTA - self.cronometro_resposta)
-            texto_cronometro = f"Tempo: {tempo_restante:0.1f}s"
+            texto_cron = f"{tempo_restante:.1f}s"
+            cor = COR_VERDE if tempo_restante > 3 else COR_AMARELO if tempo_restante > 1 else COR_VERMELHO
         else:
-            texto_cronometro = "Prepare-se..."
+            texto_cron = "Prepare-se..."
+            cor = COR_BRANCO
 
-        texto_renderizado = self.fonte_hud.render(texto_cronometro, True, COR_DESTAQUE)
-        self.tela.blit(texto_renderizado, (LARGURA_TELA // 2 - texto_renderizado.get_width() // 2, 50))
+        txt_cron = self.fonte_cronometro.render(texto_cron, True, cor)
+        self.tela.blit(txt_cron, (LARGURA_TELA // 2 - txt_cron.get_width() // 2, 12))
 
-        numero_pergunta_atual = min(
-            self.contador_perguntas_respondidas + 1, QUANTIDADE_MAXIMA_PERGUNTAS_POR_BATALHA
-        )
-        texto_numero_pergunta = self.fonte_pequena.render(
-            f"Pergunta {numero_pergunta_atual}/{QUANTIDADE_MAXIMA_PERGUNTAS_POR_BATALHA}",
+        # Número da pergunta
+        num_pergunta = min(self.contador_perguntas_respondidas + 1, QUANTIDADE_MAXIMA_PERGUNTAS_POR_BATALHA)
+        txt_num = self.fonte_pequena.render(
+            f"Pergunta {num_pergunta}/{QUANTIDADE_MAXIMA_PERGUNTAS_POR_BATALHA}",
             True,
             COR_CINZA_CLARO,
         )
-        self.tela.blit(texto_numero_pergunta, (LARGURA_TELA // 2 - texto_numero_pergunta.get_width() // 2, 70))
+        self.tela.blit(txt_num, (LARGURA_TELA // 2 - txt_num.get_width() // 2, 65))
+
+    def _desenhar_contagem_regressiva(self) -> None:
+        """Desenha a contagem regressiva (3,2,1,GO!) no centro da tela."""
+        if self.estado_rodada != ESTADO_RODADA_CONTAGEM:
+            return
+
+        centro_x = LARGURA_TELA // 2
+        centro_y = ALTURA_TELA // 2
+
+        if self.mostrar_go:
+            texto = "GO!"
+            cor = COR_VERDE
+        else:
+            texto = str(self.contagem_atual) if self.contagem_atual > 0 else "GO!"
+            cor = COR_DESTAQUE if self.contagem_atual > 0 else COR_VERDE
+
+        txt = self.fonte_contagem.render(texto, True, cor)
+        # Sombra
+        sombra = self.fonte_contagem.render(texto, True, (0, 0, 0))
+        self.tela.blit(sombra, (centro_x - txt.get_width() // 2 + 4, centro_y - txt.get_height() // 2 + 4))
+        self.tela.blit(txt, (centro_x - txt.get_width() // 2, centro_y - txt.get_height() // 2))
+
+    def _desenhar_mensagens_dano(self) -> None:
+        """Desenha todas as mensagens flutuantes de dano."""
+        for texto, pos, cor, _ in self.mensagens:
+            txt = self.fonte_cronometro.render(texto, True, cor)  # usa fonte grande
+            self.tela.blit(txt, (pos[0] - txt.get_width() // 2, pos[1]))
+
+    def _desenhar_vencedor_final(self) -> None:
+        """Exibe o vencedor na tela antes de ir para o resultado."""
+        if not self.batalha_finalizada:
+            return
+        if self.vencedor is None:
+            texto = "EMPATE!"
+            cor = COR_DESTAQUE
+        else:
+            texto = f"{self.vencedor.nome.upper()} VENCEU!"
+            cor = COR_VERDE if self.vencedor is self.jogador1 else COR_VERMELHO
+
+        txt = self.fonte_vencedor.render(texto, True, cor)
+        sombra = self.fonte_vencedor.render(texto, True, (0, 0, 0))
+        centro_x = LARGURA_TELA // 2
+        centro_y = ALTURA_TELA // 2
+        self.tela.blit(sombra, (centro_x - txt.get_width() // 2 + 4, centro_y - txt.get_height() // 2 + 4))
+        self.tela.blit(txt, (centro_x - txt.get_width() // 2, centro_y - txt.get_height() // 2))
 
     def desenhar(self) -> None:
-        """Desenha o cenário, os personagens e toda a interface da batalha na tela."""
+        """Desenha toda a tela da batalha."""
         self.tela.blit(self.cenario_atual, (0, 0))
         self.grupo_personagens.draw(self.tela)
 
-        self._desenhar_painel_jogador(self.jogador1, 40, 40, alinhado_a_direita=False)
-        self._desenhar_painel_jogador(self.jogador2, LARGURA_TELA - 40, 40, alinhado_a_direita=True)
+        # Painéis dos jogadores
+        self._desenhar_painel_jogador(self.jogador1, 40, 40, alinhado_direita=False)
+        self._desenhar_painel_jogador(self.jogador2, LARGURA_TELA - 40, 40, alinhado_direita=True)
 
+        # Mensagens de dano
+        self._desenhar_mensagens_dano()
+
+        # Contagem regressiva
+        self._desenhar_contagem_regressiva()
+
+        # Se a batalha não acabou, desenha pergunta, alternativas e cronômetro
         if self.estado_rodada != ESTADO_RODADA_FIM_DE_BATALHA:
             self._desenhar_cronometro_e_status()
             self._desenhar_pergunta_e_alternativas()
+        else:
+            # Mostra o vencedor na tela final antes de transicionar
+            self._desenhar_vencedor_final()
 
     def finalizar_batalha_antecipadamente(self) -> None:
-        """Finaliza a batalha por ação do usuário (ex: ESC)."""
+        """Finaliza a batalha por ação do usuário (ESC)."""
         if not self.batalha_finalizada:
             self._finalizar_batalha()

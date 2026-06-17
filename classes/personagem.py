@@ -8,6 +8,7 @@ from classes.gerenciador_animacoes import GerenciadorAnimacoes
 ESTADO_OCIOSO = "ocioso"
 ESTADO_ATACANDO = "atacando"
 ESTADO_SOFRENDO_DANO = "sofrendo_dano"
+ESTADO_ERRO = "errando"  
 
 
 class Personagem(pygame.sprite.Sprite):
@@ -54,12 +55,14 @@ class Personagem(pygame.sprite.Sprite):
         self.estado_atual = ESTADO_SOFRENDO_DANO
         self.cronometro_estado_temporario = 0.0
 
+    def iniciar_animacao_erro(self) -> None:   
+        """Troca o personagem para o estado de erro (resposta errada)."""
+        self.estado_atual = ESTADO_ERRO
+        self.cronometro_estado_temporario = 0.0
+
     def update(self, tempo_decorrido: float) -> None:
         """
         Atualiza a animação do personagem a cada quadro do jogo.
-
-        Sobrescreve o método 'update' de pygame.sprite.Sprite, permitindo que
-        este personagem seja atualizado automaticamente por um pygame.sprite.Group.
         """
         if self.estado_atual == ESTADO_OCIOSO:
             self._atualizar_animacao_idle(tempo_decorrido)
@@ -75,6 +78,12 @@ class Personagem(pygame.sprite.Sprite):
             self.cronometro_estado_temporario += tempo_decorrido
             self.image = self._aplicar_espelhamento(self.gerenciador_animacoes.quadro_dano)
             if self.cronometro_estado_temporario >= DURACAO_ANIMACAO_DANO:
+                self.estado_atual = ESTADO_OCIOSO
+
+        elif self.estado_atual == ESTADO_ERRO:  
+            self.cronometro_estado_temporario += tempo_decorrido
+            self.image = self._aplicar_espelhamento(self.gerenciador_animacoes.quadro_erro)
+            if self.cronometro_estado_temporario >= DURACAO_ANIMACAO_DANO:  # mesma duração do dano
                 self.estado_atual = ESTADO_OCIOSO
 
     def _atualizar_animacao_idle(self, tempo_decorrido: float) -> None:
