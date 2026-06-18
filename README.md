@@ -4,6 +4,9 @@
 
 ---
 
+## Docs de comentários sobre o projeto
+Daniel Hardman: https://docs.google.com/document/d/1UiNBWj87X-gdmjlYIDYjL0_pY6zpNgiLQH3rtrhYAFk/edit?usp=sharing
+
 ## Sobre o projeto
 
 **Batalha do Conhecimento** é um jogo educacional desenvolvido em Python com a biblioteca **Pygame**. Ele oferece uma experiência de **competição local** entre dois jogadores, que respondem perguntas de **Matemática** e **Português** em tempo real. Cada jogador utiliza seu próprio conjunto de teclas, tornando o jogo acessível mesmo em ambientes com um único computador — perfeito para salas de aula com **falta de equipamentos eletrônicos individuais**.
