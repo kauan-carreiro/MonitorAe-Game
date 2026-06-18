@@ -18,6 +18,10 @@ OPCOES_MENU: List[str] = [
     "Sair",
 ]
 
+# Tempo (em segundos) que a seta de seleção fica visível/invisível durante o
+# efeito de piscar (estilo Pokémon Fire Red). Quanto menor, mais rápido pisca.
+INTERVALO_PISCAR_SETA = 0.6
+
 
 class Menu:
     """Controla a navegação e a seleção de opções do menu principal."""
@@ -29,6 +33,10 @@ class Menu:
         self.fonte_opcao = pygame.font.SysFont("segoe ui", 34)
         self.fonte_ajuda = pygame.font.SysFont("segoe ui", 20, italic=True)
         self.indice_opcao_selecionada = 0
+
+        # Controla o piscar da seta de seleção (estilo Pokémon Fire Red)
+        self.cronometro_piscar_seta = 0.0
+        self.seta_visivel = True
 
         # Cores adicionais para efeitos
         self.cor_destaque_opcao = (255, 215, 0, 40)  # Amarelo com transparência
@@ -53,6 +61,13 @@ class Menu:
             return "Sair"
 
         return None
+
+    def atualizar(self, tempo_decorrido: float) -> None:
+        """Atualiza o cronômetro da seta de seleção piscante (estilo Pokémon)."""
+        self.cronometro_piscar_seta += tempo_decorrido
+        if self.cronometro_piscar_seta >= INTERVALO_PISCAR_SETA:
+            self.cronometro_piscar_seta = 0.0
+            self.seta_visivel = not self.seta_visivel
 
     def _desenhar_titulo(self) -> None:
         """Renderiza o título 'MonitorAê - Game' com 'Aê' em branco e o restante amarelo."""
@@ -114,12 +129,28 @@ class Menu:
                 pygame.draw.rect(s, COR_DESTAQUE, (0, 0, rect_w, rect_h), width=2, border_radius=12)
                 self.tela.blit(s, (rect_x, rect_y))
 
-            # Texto da opção
+            # Texto da opção (sem prefixo fixo; a seta de seleção é desenhada
+            # separadamente em _desenhar_seta_selecao para poder piscar)
             cor = COR_DESTAQUE if esta_selecionada else COR_BRANCO
-            prefixo = "► " if esta_selecionada else "  "
-            texto_renderizado = self.fonte_opcao.render(prefixo + opcao, True, cor)
+            texto_renderizado = self.fonte_opcao.render(opcao, True, cor)
             pos_x = LARGURA_TELA // 2 - texto_renderizado.get_width() // 2
             self.tela.blit(texto_renderizado, (pos_x, y))
+
+            # Seta piscante ao lado da opção selecionada (estilo Pokémon Fire Red)
+            if esta_selecionada and self.seta_visivel:
+                self._desenhar_seta_selecao(pos_x, y, texto_renderizado.get_height())
+
+    def _desenhar_seta_selecao(self, pos_x_texto: int, y_opcao: int, altura_texto: int) -> None:
+        """Desenha a setinha triangular que pisca ao lado da opção selecionada."""
+        centro_y = y_opcao + altura_texto // 2
+        ponta_x = pos_x_texto - 18
+
+        pontos = [
+            (ponta_x, centro_y - 10),
+            (ponta_x, centro_y + 10),
+            (ponta_x + 14, centro_y),
+        ]
+        pygame.draw.polygon(self.tela, COR_DESTAQUE, pontos)
 
     def desenhar(self) -> None:
         """Desenha todo o menu na tela."""

@@ -6,14 +6,12 @@ import pygame
 
 from classes.constantes import ALTURA_TELA, LARGURA_TELA
 
-NOMES_CENARIOS: List[str] = [f"cenario_{numero}.png" for numero in range(1, 6)]
+NOMES_CENARIOS: List[str] = [f"cenario_{numero}.png" for numero in range(1, 4)]
 
 CORES_PLACEHOLDER_CENARIOS: List[Tuple[int, int, int]] = [
     (35, 40, 70),
     (60, 30, 50),
     (25, 55, 45),
-    (55, 45, 20),
-    (40, 25, 60),
 ]
 
 
@@ -26,7 +24,7 @@ class GerenciadorCenarios:
         self._carregar_cenarios()
 
     def _carregar_cenarios(self) -> None:
-        """Carrega (ou cria placeholders para) os 5 cenários definidos em NOMES_CENARIOS."""
+        """Carrega (ou cria placeholders para) os cenários definidos em NOMES_CENARIOS."""
         for indice, nome_arquivo in enumerate(NOMES_CENARIOS):
             caminho_completo = os.path.join(self.pasta_cenarios, nome_arquivo)
             self.cenarios_carregados.append(self._carregar_imagem_de_cenario(caminho_completo, indice))
@@ -38,6 +36,8 @@ class GerenciadorCenarios:
                 return pygame.transform.smoothscale(imagem_original, (LARGURA_TELA, ALTURA_TELA))
             except pygame.error as erro:
                 print(f"[AVISO] Falha ao carregar o cenário '{caminho}': {erro}")
+        else:
+            print(f"[AVISO] Arquivo de cenário não encontrado: '{caminho}'")
         return self._criar_cenario_placeholder(indice)
 
     def _criar_cenario_placeholder(self, indice: int) -> pygame.Surface:

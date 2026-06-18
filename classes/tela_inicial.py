@@ -2,6 +2,10 @@ import pygame
 
 from classes.constantes import ALTURA_TELA, COR_BRANCO, COR_DESTAQUE, COR_FUNDO_PADRAO, LARGURA_TELA
 
+# Tempo (em segundos) que o texto de instrução fica visível/invisível durante
+# o efeito de piscar. Quanto menor o valor, mais rápido ele pisca.
+INTERVALO_PISCAR_INSTRUCAO = 0.8
+
 
 class TelaInicial:
     """Exibe o título do jogo e aguarda o jogador pressionar uma tecla para avançar."""
@@ -26,8 +30,11 @@ class TelaInicial:
         posicao_titulo = texto_titulo.get_rect(center=(LARGURA_TELA // 2, ALTURA_TELA // 2 - 40))
         self.tela.blit(texto_titulo, posicao_titulo)
 
-        opacidade = int(155 + 100 * abs((self.cronometro_pulsar % 2.0) - 1.0))
-        texto_instrucao = self.fonte_instrucao.render("Pressione qualquer tecla para começar", True, COR_BRANCO)
-        texto_instrucao.set_alpha(opacidade)
-        posicao_instrucao = texto_instrucao.get_rect(center=(LARGURA_TELA // 2, ALTURA_TELA // 2 + 60))
-        self.tela.blit(texto_instrucao, posicao_instrucao)
+        # Efeito de "piscar": o texto alterna entre visível e invisível a cada
+        # INTERVALO_PISCAR_INSTRUCAO segundos, criando um piscar rápido e nítido
+        # (em vez de um simples fade suave de opacidade).
+        texto_visivel = (self.cronometro_pulsar % (INTERVALO_PISCAR_INSTRUCAO * 2)) < INTERVALO_PISCAR_INSTRUCAO
+        if texto_visivel:
+            texto_instrucao = self.fonte_instrucao.render("Pressione qualquer tecla para começar", True, COR_BRANCO)
+            posicao_instrucao = texto_instrucao.get_rect(center=(LARGURA_TELA // 2, ALTURA_TELA // 2 + 60))
+            self.tela.blit(texto_instrucao, posicao_instrucao)
