@@ -6,7 +6,7 @@ import pygame
 LARGURA_TELA = 1024
 ALTURA_TELA = 768
 QUADROS_POR_SEGUNDO = 60
-TITULO_JANELA = "Batalha do Conhecimento"
+TITULO_JANELA = "MonitorAê - Game"
 
 # ===================== CAMINHOS DE PASTAS =====================
 PASTA_RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

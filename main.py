@@ -37,13 +37,19 @@ class Jogo:
 
         # Telas — todas recebem a surface virtual, nunca a janela real
         self.tela_inicial = TelaInicial(self.surface_jogo)
-        self.historia = Historia(self.surface_jogo)
-        self.menu = Menu(self.surface_jogo)
+        self.historia = Historia(self.surface_jogo, self.gerenciador_sons)
+        self.menu = Menu(self.surface_jogo, self.gerenciador_sons)
 
         # Estado da batalha
         self.batalha = None
         self.modo_jogo = None
         self.resultado = None
+
+        # Música calma de fundo, tocando desde a tela inicial (pressione uma
+        # tecla), passando pela tela de história e pelo menu de seleção de
+        # modo. Só para quando a batalha começa, que tem sua própria música
+        # (tocar_musica_de_batalha troca a faixa automaticamente).
+        self.gerenciador_sons.tocar_musica_lofi()
 
     def _alternar_tela_cheia(self):
         self.tela_cheia = not self.tela_cheia
@@ -144,6 +150,7 @@ class Jogo:
                     if self.resultado.processar_evento(evento):
                         self.estado = ESTADO_MENU
                         self.resultado = None
+                        self.gerenciador_sons.tocar_musica_lofi()
 
                 # ------------------- CRÉDITOS -------------------
                 elif self.estado == ESTADO_CREDITOS:
