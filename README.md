@@ -6,6 +6,7 @@
 
 ## Documentos de comentários sobre o projeto
 Daniel Hardman: https://docs.google.com/document/d/1UiNBWj87X-gdmjlYIDYjL0_pY6zpNgiLQH3rtrhYAFk/edit?usp=sharing
+
 Kauan Henrique: https://docs.google.com/document/d/11zEWt7j32aG07idxowgjeaKmEIORsk37qT3zNrEF8yk/edit?usp=sharing
 
 ## Sobre o projeto
