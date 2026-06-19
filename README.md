@@ -20,19 +20,25 @@ O jogo foi projetado para ser **leve**, **divertido** e **educativo**, estimulan
 ### Tela Inicial
 - **Logo e título** estilizados
 - **Pressione qualquer tecla** para avançar para a história
+<img width="800" height="600" alt="Captura de tela 2026-06-18 201717" src="https://github.com/user-attachments/assets/de7759ac-42fc-4f31-a8f6-73ed6b63db18" />
+
 
 ### História
 - Narrativa envolvente com dois personagens: **Jeromel** e **Felisberto**
 - Texto digitado progressivamente com efeito de máquina de escrever
 - Possibilidade de pular toda a história com **ENTER**
+<img width="600" height="450" alt="Captura de tela 2026-06-18 202636" src="https://github.com/user-attachments/assets/463011ac-98b0-4857-85c5-44b4c9643f4f" />
 
 ### Menu Principal
 - **Batalha Matemática** — apenas perguntas de matemática
 - **Batalha Português** — apenas perguntas de português
 - **Batalha Mista** — perguntas aleatórias de ambas as matérias
 - **Sair** — encerra o jogo
+<img width="600" height="450" alt="Captura de tela 2026-06-18 202646" src="https://github.com/user-attachments/assets/dc3020a2-f402-46dd-8df5-68f4533171a9" />
 
 ### Batalha (Gameplay)
+<img width="600" height="450" alt="Captura de tela 2026-06-18 202707" src="https://github.com/user-attachments/assets/f6cd80c6-142c-48e0-94cc-49b0455a7023" />
+
 - **Disputa local** para **dois jogadores** em um único teclado
 - **Contagem regressiva** (3, 2, 1, GO!) antes de cada pergunta
 - Cada jogador tem **4 teclas** para escolher alternativas (A, B, C, D):
@@ -68,11 +74,13 @@ O jogo foi projetado para ser **leve**, **divertido** e **educativo**, estimulan
 - **Sprites** dos personagens em vitória/derrota (se disponíveis)
 - **Cenário especial** para a tela de resultado
 - Pressione **ESC** ou **ENTER** para voltar ao menu
+<img width="600" height="450" alt="Captura de tela 2026-06-18 202724" src="https://github.com/user-attachments/assets/7bb63078-93fe-43d8-a1db-60ca98a2ec47" />
 
 ### Controles e Acessibilidade
 - **Tela de controles** (F1) exibe o mapeamento de teclas para ambos os jogadores
 - Pode ser aberta/fechada a qualquer momento durante a batalha, **congelando** o jogo
 - Ideal para salas de aula com **projetor** ou **TV** — todos veem as teclas na tela
+<img width="600" height="450" alt="Captura de tela 2026-06-18 201803" src="https://github.com/user-attachments/assets/ab314b41-1012-4ef2-a6fb-ac850a485c70" />
 
 ---
 
@@ -263,11 +271,16 @@ Você pode **adicionar, editar ou remover** perguntas livremente, desde que mant
   - 1 quadro de **erro**
 - Se uma imagem não for encontrada, o jogo gera um **placeholder colorido** com o nome do estado
 - Tamanho padrão dos sprites: **220×260** (pode ser ajustado em `gerenciador_animacoes.py`)
+<img width="450" height="450" alt="idle_1" src="https://github.com/user-attachments/assets/41f40ff9-8cce-4dd4-8636-59b1c728efa0" />
+<img width="450" height="450" alt="idle_1" src="https://github.com/user-attachments/assets/8f06a172-c873-4e60-93df-9c02b27622a2" />
 
 ### Cenários
 - Imagens de fundo em resolução **1024×768**
 - O jogo sorteia aleatoriamente um cenário a cada batalha
 - Se não encontrar a imagem, cria um **gradiente** com cores de fallback
+<img width="600" height="450" alt="cenario_1-processed(lightpdf com)" src="https://github.com/user-attachments/assets/def80989-cae1-4620-84ee-a4a217ce3e1f" />
+<img width="600" height="450" alt="cenario_2-processed(lightpdf com)" src="https://github.com/user-attachments/assets/9ab3779f-01e1-47a2-b7b1-2289072a1ed4" />
+<img width="600" height="450" alt="wmremove-transformed" src="https://github.com/user-attachments/assets/f21ca19d-f579-4ba5-8f89-a7bf1cb3b9ce" />
 
 ### Interface
 - Design moderno com **bordas arredondadas**, **sombras** e **transparências**
